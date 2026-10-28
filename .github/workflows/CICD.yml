@@ -37,11 +37,11 @@ jobs:
           - label: ubuntu24-new-image
             os: ubuntu-24.04
             image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:15c920257b7e561ec8f7bd1cc12bcfd766048c0b49c28d298c00168c4d56b7b4
-          - label: latest-old-image
-            os: ubuntu-latest
+          - label: ubuntu26-old-image
+            os: ubuntu-26.04
             image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:d2b6b9cb593ab84fe505e2bb1b6025e5f44e3e91cf55f8abf6979b46a6a5cc0a
-          - label: latest-new-image
-            os: ubuntu-latest
+          - label: ubuntu26-new-image
+            os: ubuntu-26.04
             image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:15c920257b7e561ec8f7bd1cc12bcfd766048c0b49c28d298c00168c4d56b7b4
     env:
       CROSS_IMAGE: ${{ matrix.image }}
