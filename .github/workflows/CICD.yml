@@ -1,55 +1,21 @@
-name: i686 environment diagnosis
+name: Validate pinned i686 GNU runner
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  cross:
-    name: Build the pinned cross tool once
+  validate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.99.1
-      - run: cargo install cross --git https://github.com/cross-rs/cross --rev 588b3c99db52b5a9c5906fab96cfadcf1bde7863 --locked --root "$RUNNER_TEMP/cross"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pinned-cross
-          path: ${{ runner.temp }}/cross/bin/cross
-          retention-days: 3
-
-  diagnose:
-    name: ${{ matrix.label }}
-    needs: cross
-    runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: ubuntu24-old-image
-            os: ubuntu-24.04
-            image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:d2b6b9cb593ab84fe505e2bb1b6025e5f44e3e91cf55f8abf6979b46a6a5cc0a
-          - label: ubuntu24-new-image
-            os: ubuntu-24.04
-            image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:15c920257b7e561ec8f7bd1cc12bcfd766048c0b49c28d298c00168c4d56b7b4
-          - label: ubuntu26-old-image
-            os: ubuntu-26.04
-            image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:d2b6b9cb593ab84fe505e2bb1b6025e5f44e3e91cf55f8abf6979b46a6a5cc0a
-          - label: ubuntu26-new-image
-            os: ubuntu-26.04
-            image: ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:15c920257b7e561ec8f7bd1cc12bcfd766048c0b49c28d298c00168c4d56b7b4
-    env:
-      CROSS_IMAGE: ${{ matrix.image }}
     steps:
       - uses: actions/checkout@v6
         with:
-          repository: ZXLyyds100/bat
-          ref: 053089941041e54afe515038122a499345d3fca7
+          repository: PerchAnton/bat
+          ref: 3e2c1bdc8e026b53a6ec91c3681dba73db5408b8
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,26 +25,26 @@ jobs:
         with:
           name: pinned-cross
           path: ${{ runner.temp }}/cross/bin
-      - name: Configure the exact image and record the environment
+          repository: PerchAnton/bat
+          run-id: 40682045338
+          github-token: ${{ github.token }}
+      - name: Record the exact source and production image
         shell: bash
         run: |
           chmod +x "$RUNNER_TEMP/cross/bin/cross"
           echo "$RUNNER_TEMP/cross/bin" >> "$GITHUB_PATH"
-          printf '[target.i686-unknown-linux-gnu]\nimage = "%s"\n' "$CROSS_IMAGE" > "$RUNNER_TEMP/Cross.toml"
-          echo "CROSS_CONFIG=$RUNNER_TEMP/Cross.toml" >> "$GITHUB_ENV"
-          test "$(git rev-parse HEAD)" = 053089941041e54afe515038122a499345d3fca7
-          git status --porcelain
+          test "$(git rev-parse HEAD)" = 3e2c1bdc8e026b53a6ec91c3681dba73db5408b8
+          git show --stat --oneline HEAD
           cat /etc/os-release
-          uname -a
           rustc -vV
-          docker version
-          docker pull "$CROSS_IMAGE"
-          docker image inspect "$CROSS_IMAGE" --format '{{json .RepoDigests}}'
-      - name: Focused regression on the unchanged PR source
-        run: cross test --locked --target=i686-unknown-linux-gnu --test integration_tests no_args_doesnt_break -- --exact --nocapture
-      - name: Full i686 suite on the unchanged PR source
-        if: ${{ !cancelled() }}
+          "$RUNNER_TEMP/cross/bin/cross" --version
+          docker pull ghcr.io/cross-rs/i686-unknown-linux-gnu:main
+          docker image inspect ghcr.io/cross-rs/i686-unknown-linux-gnu:main --format '{{json .RepoDigests}}'
+      - name: Original release build command
+        run: cross build --locked --release --target=i686-unknown-linux-gnu
+      - name: Original unfiltered test command
         run: cross test --locked --target=i686-unknown-linux-gnu
-      - name: Verify source and lockfile remained unchanged
-        if: ${{ !cancelled() }}
-        run: git diff --exit-code HEAD
+      - name: Verify unchanged source and report release binary
+        run: |
+          git diff --exit-code HEAD
+          sha256sum target/i686-unknown-linux-gnu/release/bat
